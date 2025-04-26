@@ -3,11 +3,12 @@
 ## Overview
 This repository contains the **Stata-based replication ("clone") code** for the inventory turnover trend analysis presented in the paper:
 
-> **Paper Title:**  
-> *An Econometric Analysis of Inventory Turnover Performance in Retail Services*
-> 
-> **Authors:** Vishal Gaur, Marshall L. Fisher, Ananth Raman
-> **Published in:** February 2005
+If you use this repository or find it helpful, please cite the original paper:
+
+> Gallino, Santiago, and Antonio Moreno. 2014.  
+> "Integration of Online and Offline Channels in Retail: The Impact of Sharing Reliable Inventory Availability Information."  
+> *Management Science* 60(6): 1434–1451.  
+> https://doi.org/10.1287/mnsc.2014.1951
 
 The code replicates the key empirical analyses, including:
 - Calculation of inventory turnover (IT) at the firm-year level
