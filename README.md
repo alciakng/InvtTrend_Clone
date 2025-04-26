@@ -3,8 +3,7 @@
 ## Overview
 This repository contains the **Stata-based replication ("clone") code** for the inventory turnover trend analysis presented in the paper:
 
-If you use this repository or find it helpful, please cite the original paper:
-
+If you use this repository or find it helpful, please cite the original paper
 > Gallino, Santiago, and Antonio Moreno. 2014.  
 > "Integration of Online and Offline Channels in Retail: The Impact of Sharing Reliable Inventory Availability Information."  
 > *Management Science* 60(6): 1434–1451.  
