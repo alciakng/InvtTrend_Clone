@@ -28,7 +28,7 @@ The code replicates the key empirical analyses, including:
 ## How to Run
 1. Download and prepare Compustat quarterly and annual datasets.
 2. Place raw data under same directory.
-3. Execute `.do` files sequentially from `/DO_files/`.
+3. Execute `.do` files sequentially from root directory.
 4. Outputs (tables and figures) will be saved to the working directory.
 
 ---
