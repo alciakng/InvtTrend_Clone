@@ -7,7 +7,6 @@ This repository contains the **Stata-based replication ("clone") code** for the 
 > *An Econometric Analysis of Inventory Turnover Performance in Retail Services, 1985–2015*
 > 
 > **Authors:** Vishal Gaur, Marshall L. Fisher, Ananth Raman
-> 
 > **Published in:** February 2005
 
 The code replicates the key empirical analyses, including:
