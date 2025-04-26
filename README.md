@@ -4,7 +4,7 @@
 This repository contains the **Stata-based replication ("clone") code** for the inventory turnover trend analysis presented in the paper:
 
 > **Paper Title:**  
-> *An Econometric Analysis of Inventory Turnover Performance in Retail Services, 1985–2015*
+> *An Econometric Analysis of Inventory Turnover Performance in Retail Services*
 > 
 > **Authors:** Vishal Gaur, Marshall L. Fisher, Ananth Raman
 > **Published in:** February 2005
