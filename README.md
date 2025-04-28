@@ -105,3 +105,9 @@ It is **not affiliated** with the original authors or publishers.
 
 #### after 2000 (2001~2015)
 <img width="513" alt="image" src="https://github.com/user-attachments/assets/2d489a55-205c-4780-8801-352b3f57befb" />
+
+
+## Report for replication project
+[Replication-github.pdf](https://github.com/user-attachments/files/19940037/Replication-github.pdf)
+
+
