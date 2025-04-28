@@ -1,10 +1,17 @@
 
 /*===========================================
  <Section 1. 프레임 정제>
- - 결측치 제거 - 1번조건 
- - 5년 연속 데이터가 없는 경우 제거 - 2번조건 
- - 예상매출액 컬럼 생성 - 3번조건 
- - 회사별 최초 2개년 데이터 제거 - 4번조건 
+ [Part1] year 프레임 결측치 제거
+ [Part2] quarter 프레임 결측치 제거 
+ [Part3] quarter 프레임의 4분기 평균 통계량산출(invtq, ppegtq)
+ [Part4] 데이터프레임 merge
+ [Part5] 결측치 및 이상치 제거 작업들
+ 
+ <결측치제거 조건 명세> 
+ - (1번) 결측치 제거 
+ - (2번) 5년 연속 데이터가 없는 경우 제거 
+ - (3번) 예상매출액 컬럼 생성 
+ - (4번) 회사별 최초 2개년 데이터 제거
 =============================================*/
 
 // 프레임 생성
@@ -13,8 +20,11 @@ frame create pre2000_quarter
 frame create post2000_year
 frame create post2000_quarter
 
+// ----------------------------------------------
+// [Part1] year프레임 결측치제거 
+// ----------------------------------------------
 
-// 1985~2000 년도 프레임 
+// 1985~2000 년도 프레임 / 결측치 제거 
 frame pre2000_year: {
     use year, clear
     keep if fyear >=1985 & fyear <= 2000 
@@ -23,11 +33,10 @@ frame pre2000_year: {
     drop if missing(cogs) | missing(sale)
 }
 
-
 // describe 
 frame pre2000_year : describe
 
-
+// 2000~2015 년도 프레임 / 결측치 제거  
 frame post2000_year: {
 	use year, clear
     keep if fyear >= 2001
@@ -39,20 +48,24 @@ frame post2000_year: {
 // describe
 frame post2000_year : describe
 
-// 2001~2015년도 프레임 
+// ----------------------------------------------
+// [Part2] quarter 프레임의 결측치 정제 
+// ----------------------------------------------
+
+// 1985~2000년 분기 프레임 / 결측치 및 정제 
 frame pre2000_quarter: {
     use quarter,clear
     keep if fyear >=1985 & fyear <=2000
 	
-	/* --------------------------------------------
-       재고자산 또는 고정자산이 모두 결측인 경우 제거(1번 조건)
-	   -------------------------------------------- */
+	//--------------------------------------------
+    // (1번) 재고자산 또는 고정자산이 모두 결측인 경우 제거
+	//--------------------------------------------
 	
 	// 그룹 아이디 태그 생성
 	egen group_id = group(gvkey sic fyear)
 	egen n_obs = count(fqtr), by(group_id)
 	
-    // 조건 1: invtq가 모두 결측 또는 0
+    // 조건 1: invtq가 모두 0 또는 결측
     gen invtq_bad = missing(invtq) | invtq == 0
     egen invtq_sum = total(invtq_bad), by(group_id)
     gen invtq_flag = (invtq_sum == n_obs)
@@ -69,7 +82,7 @@ frame pre2000_quarter: {
 	egen keep_flag = max(drop_group), by(group_id)
     drop if keep_flag == 1
 	
-	// 0인 값은 결측치로 대체 
+	// 조건 3: 0인 값은 결측치로 대체 
 	replace invtq = . if invtq == 0
 	replace ppegtq = . if ppegtq == 0
 	
@@ -85,15 +98,15 @@ frame post2000_quarter: {
     use quarter,clear
     keep if fyear >=2001
 	
-	/*---------------------------------------------------
-       재고자산 또는 고정자산이 모두 결측인 경우 제거(1번 조건)
-	 ---------------------------------------------------- */
+	//---------------------------------------------
+    // (1번) 재고자산 또는 고정자산이 모두 결측인 경우 제거
+	//---------------------------------------------
 	
 	// 그룹 아이디 태그 생성
 	egen group_id = group(gvkey sic fyear)
 	egen n_obs = count(fqtr), by(group_id)
 	
-    // 조건 1: invtq가 모두 결측 또는 0
+    // 조건 1: invtq가 모두 0 또는 결측
     gen invtq_bad = missing(invtq) | invtq == 0
     egen invtq_sum = total(invtq_bad), by(group_id)
     gen invtq_flag = (invtq_sum == n_obs)
@@ -121,8 +134,9 @@ frame post2000_quarter: {
 // describe 
 frame post2000_quarter : describe
 
-
-// quarter 프레임의 4분기 평균 통계량산출(invtq, ppegtq)
+// ----------------------------------------------
+// [Part3] quarter 프레임의 4분기 평균 통계량산출(invtq, ppegtq)
+// ----------------------------------------------
 frame pre2000_quarter {
 	preserve
     collapse (mean) invtq ppegtq, by(gvkey sic fyear)
@@ -140,13 +154,13 @@ frame post2000_quarter {
 
 // describe 
 frame pre2000_quarter_mean : describe
-
-
 // describe 
 frame post2000_quarter_mean : describe
 
 
-// merge 작업 (pre_2000)
+// ----------------------------------------------
+// [Part4] frame merge
+// ----------------------------------------------
 frame copy pre2000_year pre2000_merge
 frame change pre2000_merge // 머지용 테이블로 전환 
 frame pre2000_quarter_mean: rename fyearq fyear // 조인을 위해 컬럼명변경 
@@ -154,11 +168,6 @@ frlink 1:1 gvkey fyear sic, frame(pre2000_quarter_mean) // 조인
 frget invtq ppegtq, from(pre2000_quarter_mean) // 컬럼 가져오기
 rename (invtq ppegtq) (mean_invt mean_ppegt)
 
-// describe 
-frame pre2000_merge : describe
-
-
-// merge 작업 (post_2000)
 frame copy post2000_year post2000_merge
 frame change post2000_merge // 머지용 테이블로 전환 
 frame post2000_quarter_mean: rename fyearq fyear // 조인을 위해 컬럼명변경 
@@ -166,17 +175,26 @@ frlink 1:1 gvkey fyear sic, frame(post2000_quarter_mean) // 조인
 frget invtq ppegtq, from(post2000_quarter_mean) // 컬럼 가져오기
 rename (invtq ppegtq) (mean_invt mean_ppegt)
 
+// describe 
+frame pre2000_merge : describe
+// describe 
+frame post2000_merge : describe
 
-// -----------------------------------
-// (1번 조건) 조인 후 결측치 제외 
-// -----------------------------------
+
+// ----------------------------------------------
+// [Part5] 결측치 및 이상치 제거 작업들
+// ----------------------------------------------
+
+// ---------------------
+// (1번) 조인 후 결측치 제외 
+// ---------------------
 frame pre2000_merge: drop if missing(mean_invt) | missing(mean_ppegt)
 frame post2000_merge: drop if missing(mean_invt) | missing(mean_ppegt)
 
 
-// ------------------------------------------------------
-// (2번 조건) 5년 연속 데이터가 존재하지 않는 기업들 제외 
-// ------------------------------------------------------
+// ---------------------------------------
+// (2번) 5년 연속 데이터가 존재하지 않는 기업들 제외 
+// ---------------------------------------
 
 frame pre2000_merge: {
     
@@ -199,8 +217,6 @@ frame pre2000_merge: {
     // 6. 정리 (불필요 변수 삭제)
     drop is_consec streak max_streak
 }
-
-
 
 frame post2000_merge: {
     
@@ -228,7 +244,6 @@ frame post2000_merge: {
 // -----------------------------------
 // (3번 조건) 예상매출액 계산하여 컬럼 생성 
 // -----------------------------------
-
 frame pre2000_merge: {
 
     // 1. 정렬
@@ -273,13 +288,13 @@ frame pre2000_merge: {
 
     // 7. 정리
     drop L T L_new T_new S
-
-    // 8. 최초 2개년 데이터 삭제 (4번 조건)
+	
+	// -------------------------------
+    // 8. (4번 조건) 최초 2개년 데이터 삭제 
+	// -------------------------------
     drop if year_idx <= 2
     drop year_idx
 }
-
-
 
 frame post2000_merge: {
 
@@ -326,10 +341,14 @@ frame post2000_merge: {
     // 7. 정리
     drop L_new T_new S
 
-    // 8. 최초 2개년 데이터 삭제 (4번 조건)
+	// -------------------------------
+    // 8. (4번 조건) 최초 2개년 데이터 삭제 
+	// -------------------------------
     drop if year_idx <= 2
     drop year_idx
 }
+
+
 
 
 /*=================================================================================
@@ -340,7 +359,7 @@ frame post2000_merge: {
  - 2. 총이익률(GM) - (sale(매출액) - cogs(매출원가)) / sale(매출액)
  - 3. 자본집약도(CI) - ppegtq(연평균 고정자산)/(invtq(연평균 재고자산) + ppegtq(연평균 고정자산))
  - 4. 매출서프라이즈(SS) - sale(매출액) / forcast_sales(예상매출액)
- [Part3. 이상치 제거]
+ [Part3. 파생변수 이상치 제거]
 ===================================================================================*/
 // [Part1. 산업코드(SIC) 그룹분류]
 frame pre2000_merge: {
@@ -413,7 +432,7 @@ frame post2000_merge: {
 
 
 
-// [Part3. 이상치 제거]
+// [Part3. 파생변수 이상치 제거]
 frame pre2000_merge: {
 
     // 1. IT 변수의 평균과 표준편차 계산
@@ -447,7 +466,6 @@ frame post2000_merge: {
     // 4. 플래그 변수 삭제 (깔끔하게 정리)
     drop IT_outlier
 }
-
 
 
 
@@ -467,174 +485,168 @@ frame post2000_merge: {
  
 // 원본 프레임에서 모든 요약 통계를 계산 → 새로운 프레임에 저장
 frame pre2000_merge: {
- 
-// 1. 회사 수 계산을 위한 임시 프레임
-preserve
 
-	 // 1. 각 기업별 첫 행만 남기는 tag 생성
-	 egen tag = tag(industry_segment gvkey)
-	 // 그 행들만 남김
-	 keep if tag == 1
+	// 1. 회사 수 계산을 위한 임시 프레임
+	preserve
+		 // 1. 각 기업별 첫 행만 남기는 tag 생성
+		 egen tag = tag(industry_segment gvkey)
+		 // 그 행들만 남김
+		 keep if tag == 1
+		 // 2. dummy 변수 생성해서 count할 값으로 사용
+		 gen one = 1
+		 // 3. 산업별 고유 기업 수 count
+		 collapse (count) firms = one, by(industry_segment)
+		 tempfile firmcount
+		 save "firmcount.dta", replace
 
-	 // 2. dummy 변수 생성해서 count할 값으로 사용
-	 gen one = 1
-	 // 3. 산업별 고유 기업 수 count
-	 collapse (count) firms = one, by(industry_segment)
-	 tempfile firmcount
-	 save "firmcount.dta", replace
+	restore 
+	 
+	// 2. 요약 통계량 계산
+	preserve
+		 gen one = 1
+			 
+		 collapse ///
+			 (count) obs = one ///
+			 (mean)  mean_sale = sale mean_IT = IT mean_GM = GM mean_CI = CI ///
+			 (sd)    sd_IT = IT sd_GM = GM sd_CI = CI ///
+			 (p50)   med_sale = sale med_IT = IT med_GM = GM med_CI = CI ///
+			, by(industry_segment)
 
-restore 
- 
-// 2. 요약 통계량 계산
-preserve
-	 gen one = 1
-		 
-	 collapse ///
-		 (count) obs = one ///
-		 (mean)  mean_sale = sale mean_IT = IT mean_GM = GM mean_CI = CI ///
-		 (sd)    sd_IT = IT sd_GM = GM sd_CI = CI ///
-		 (p50)   med_sale = sale med_IT = IT med_GM = GM med_CI = CI ///
-		, by(industry_segment)
+		 // 3. firm 수 결합
+		 merge 1:1 industry_segment using "firmcount.dta", nogenerate
 
-	 // 3. firm 수 결합
-	 merge 1:1 industry_segment using "firmcount.dta", nogenerate
+		 // 4. CV 계산
+		 gen cv_IT = sd_IT / mean_IT
+		 gen cv_GM = sd_GM / mean_GM
+		 gen cv_CI = sd_CI / mean_CI
+					 
+		 // 5. Aggregate 행 추가를 위해 임시저장 
+		 tempfile summary_stats
+		 save "summary_stats.dta", replace
 
+	restore
  
-	 // 4. CV 계산
-	 gen cv_IT = sd_IT / mean_IT
-	 gen cv_GM = sd_GM / mean_GM
-	 gen cv_CI = sd_CI / mean_CI
-                 
-	 // 5. Aggregate 행 추가를 위해 임시저장 
-	 tempfile summary_stats
-	 save "summary_stats.dta", replace
+	// 3. 집계값 계산용 프레임 복사
+	preserve
+	 
+		 use "summary_stats.dta", clear
+		 collapse ///
+				 (sum) firms obs ///
+				 (mean) mean_sale mean_IT mean_GM mean_CI ///
+							sd_IT sd_GM sd_CI ///
+							med_sale med_IT med_GM med_CI ///
+							cv_IT cv_GM cv_CI
+		 gen industry_segment = "Aggregate statistics"
+		 append using "summary_stats.dta"
+	 
+		 // 6. 결과를 요약 프레임으로 복사
+		 frame put industry_segment firms obs ///
+			 mean_sale mean_IT mean_GM mean_CI ///
+			 sd_IT sd_GM sd_CI ///
+			 med_sale med_IT med_GM med_CI ///
+			 cv_IT cv_GM cv_CI, ///
+			 into(pre2000_summary)
 
-     restore
- 
- 
-     // 3. 집계값 계산용 프레임 복사
-     preserve
- 
-	 use "summary_stats.dta", clear
-	 collapse ///
-			 (sum) firms obs ///
-			 (mean) mean_sale mean_IT mean_GM mean_CI ///
-						sd_IT sd_GM sd_CI ///
-						med_sale med_IT med_GM med_CI ///
-						cv_IT cv_GM cv_CI
-	 gen industry_segment = "Aggregate statistics"
-	 append using "summary_stats.dta"
- 
-	 // 6. 결과를 요약 프레임으로 복사
-	 frame put industry_segment firms obs ///
-		 mean_sale mean_IT mean_GM mean_CI ///
-		 sd_IT sd_GM sd_CI ///
-		 med_sale med_IT med_GM med_CI ///
-		 cv_IT cv_GM cv_CI, ///
-		 into(pre2000_summary)
-     
-	 restore
+	restore
          
-	 frame change pre2000_summary 
-	 
-	 // Aggregate statistics 마지막 줄로 보내기 
-	 gen sort_order = cond(industry_segment == "Aggregate statistics", _N + 1, _n)
-	 sort sort_order
-	 drop sort_order
-	 
-	 // 출력
-	 list industry_segment firms obs mean_sale mean_IT mean_GM mean_CI, sep(0) noobs abbrev(10) //평균
-	 list industry_segment firms obs med_sale med_IT med_GM med_CI, sep(0) noobs abbrev(10) //중앙값 
-	 list industry_segment firms obs sd_IT sd_GM sd_CI, sep(0) noobs abbrev(10) // 표준편차 
-	 list industry_segment firms obs cv_IT cv_GM cv_CI, sep(0) noobs abbrev(10) // 변동계수
- }
+	frame change pre2000_summary 
 
+	// 4. Aggregate statistics 마지막 줄로 보내기 
+	gen sort_order = cond(industry_segment == "Aggregate statistics", _N + 1, _n)
+	sort sort_order
+	drop sort_order
 
- 
- // 원본 프레임에서 모든 요약 통계를 계산 → 새로운 프레임에 저장
+	// 5. 출력
+	list industry_segment firms obs mean_sale mean_IT mean_GM mean_CI, sep(0) noobs abbrev(10) //평균
+	list industry_segment firms obs med_sale med_IT med_GM med_CI, sep(0) noobs abbrev(10) //중앙값 
+	list industry_segment firms obs sd_IT sd_GM sd_CI, sep(0) noobs abbrev(10) // 표준편차 
+	list industry_segment firms obs cv_IT cv_GM cv_CI, sep(0) noobs abbrev(10) // 변동계수
+}
+
+// 원본 프레임에서 모든 요약 통계를 계산 → 새로운 프레임에 저장
 frame post2000_merge: {
  
-// 1. 회사 수 계산을 위한 임시 프레임
-preserve
+	// 1. 회사 수 계산을 위한 임시 프레임
+	preserve
 
-	 // 1. 각 기업별 첫 행만 남기는 tag 생성
-	 egen tag = tag(industry_segment gvkey)
-	 // 그 행들만 남김
-	 keep if tag == 1
+		 // 1. 각 기업별 첫 행만 남기는 tag 생성
+		 egen tag = tag(industry_segment gvkey)
+		 // 그 행들만 남김
+		 keep if tag == 1
 
-	 // 2. dummy 변수 생성해서 count할 값으로 사용
-	 gen one = 1
-	 // 3. 산업별 고유 기업 수 count
-	 collapse (count) firms = one, by(industry_segment)
-	 tempfile firmcount
-	 save "firmcount.dta", replace
+		 // 2. dummy 변수 생성해서 count할 값으로 사용
+		 gen one = 1
+		 // 3. 산업별 고유 기업 수 count
+		 collapse (count) firms = one, by(industry_segment)
+		 tempfile firmcount
+		 save "firmcount.dta", replace
 
-restore 
+	restore 
  
-// 2. 요약 통계량 계산
-preserve
-	 gen one = 1
-		 
-	 collapse ///
-		 (count) obs = one ///
-		 (mean)  mean_sale = sale mean_IT = IT mean_GM = GM mean_CI = CI ///
-		 (sd)    sd_IT = IT sd_GM = GM sd_CI = CI ///
-		 (p50)   med_sale = sale med_IT = IT med_GM = GM med_CI = CI ///
-		, by(industry_segment)
+	// 2. 요약 통계량 계산
+	preserve
+		 gen one = 1
+			 
+		 collapse ///
+			 (count) obs = one ///
+			 (mean)  mean_sale = sale mean_IT = IT mean_GM = GM mean_CI = CI ///
+			 (sd)    sd_IT = IT sd_GM = GM sd_CI = CI ///
+			 (p50)   med_sale = sale med_IT = IT med_GM = GM med_CI = CI ///
+			, by(industry_segment)
 
-	 // 3. firm 수 결합
-	 merge 1:1 industry_segment using "firmcount.dta", nogenerate
+		 // 3. firm 수 결합
+		 merge 1:1 industry_segment using "firmcount.dta", nogenerate
 
- 
-	 // 4. CV 계산
-	 gen cv_IT = sd_IT / mean_IT
-	 gen cv_GM = sd_GM / mean_GM
-	 gen cv_CI = sd_CI / mean_CI
-                 
-	 // 5. Aggregate 행 추가를 위해 임시저장 
-	 tempfile summary_stats
-	 save "summary_stats.dta", replace
-
-     restore
- 
- 
-     // 3. 집계값 계산용 프레임 복사
-     preserve
- 
-	 use "summary_stats.dta", clear
-	 collapse ///
-			 (sum) firms obs ///
-			 (mean) mean_sale mean_IT mean_GM mean_CI ///
-						sd_IT sd_GM sd_CI ///
-						med_sale med_IT med_GM med_CI ///
-						cv_IT cv_GM cv_CI
-	 gen industry_segment = "Aggregate statistics"
-	 append using "summary_stats.dta"
- 
-	 // 6. 결과를 요약 프레임으로 복사
-	 frame put industry_segment firms obs ///
-		 mean_sale mean_IT mean_GM mean_CI ///
-		 sd_IT sd_GM sd_CI ///
-		 med_sale med_IT med_GM med_CI ///
-		 cv_IT cv_GM cv_CI, ///
-		 into(post2000_summary)
-     
-	 restore
-         
-	 frame change post2000_summary 
 	 
-	 // Aggregate statistics 마지막 줄로 보내기 
-	 gen sort_order = cond(industry_segment == "Aggregate statistics", _N + 1, _n)
-	 sort sort_order
-	 drop sort_order
+		 // 4. CV 계산
+		 gen cv_IT = sd_IT / mean_IT
+		 gen cv_GM = sd_GM / mean_GM
+		 gen cv_CI = sd_CI / mean_CI
+					 
+		 // 5. Aggregate 행 추가를 위해 임시저장 
+		 tempfile summary_stats
+		 save "summary_stats.dta", replace
+
+	restore
+ 
+
+	// 3. 집계값 계산용 프레임 복사
+	preserve
+
+		 use "summary_stats.dta", clear
+		 collapse ///
+				 (sum) firms obs ///
+				 (mean) mean_sale mean_IT mean_GM mean_CI ///
+							sd_IT sd_GM sd_CI ///
+							med_sale med_IT med_GM med_CI ///
+							cv_IT cv_GM cv_CI
+		 gen industry_segment = "Aggregate statistics"
+		 append using "summary_stats.dta"
 	 
-	 // 출력
-	 frame change pre2000_summary
-	 list industry_segment firms obs mean_sale mean_IT mean_GM mean_CI, sep(0) noobs abbrev(10) //평균
-	 list industry_segment firms obs med_sale med_IT med_GM med_CI, sep(0) noobs abbrev(10) //중앙값 
-	 list industry_segment firms obs sd_IT sd_GM sd_CI, sep(0) noobs abbrev(10) // 표준편차 
-	 list industry_segment firms obs cv_IT cv_GM cv_CI, sep(0) noobs abbrev(10) // 변동계수
- }
+		 // 6. 결과를 요약 프레임으로 복사
+		 frame put industry_segment firms obs ///
+			 mean_sale mean_IT mean_GM mean_CI ///
+			 sd_IT sd_GM sd_CI ///
+			 med_sale med_IT med_GM med_CI ///
+			 cv_IT cv_GM cv_CI, ///
+			 into(post2000_summary)
+
+	restore
+			 
+	frame change post2000_summary 
+
+	// 4. Aggregate statistics 마지막 줄로 보내기 
+	gen sort_order = cond(industry_segment == "Aggregate statistics", _N + 1, _n)
+	sort sort_order
+	drop sort_order
+
+	// 5. 출력
+	frame change post2000_summary
+	list industry_segment firms obs mean_sale mean_IT mean_GM mean_CI, sep(0) noobs abbrev(10) //평균
+	list industry_segment firms obs med_sale med_IT med_GM med_CI, sep(0) noobs abbrev(10) //중앙값 
+	list industry_segment firms obs sd_IT sd_GM sd_CI, sep(0) noobs abbrev(10) // 표준편차 
+	list industry_segment firms obs cv_IT cv_GM cv_CI, sep(0) noobs abbrev(10) // 변동계수
+}
 
 
 // --------------------------------------------------------------------------------
@@ -804,7 +816,7 @@ frame pre2000_merge: {
 		set obs 13
 		gen year = 1987 + _n - 1
 		gen model1_coef = .
-		gen model_stderr = .
+		gen model1_stderr = .
 
 		// Model 1 평균계수/표준오차 계산
 		foreach i of numlist 1/10 {
@@ -828,7 +840,7 @@ frame pre2000_merge: {
 		forvalues y = 1987/1999 {
 			local row = `y' - 1986
 			replace model1_coef = (b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10) / 10 in `row'
-			replace model_stderr = (se1 + se2 + se3 + se4 + se5 + se6 + se7 + se8 + se9 + se10) / 10 in `row'
+			replace model1_stderr = (se1 + se2 + se3 + se4 + se5 + se6 + se7 + se8 + se9 + se10) / 10 in `row'
 		}
 
 		// 8. 모델2 결과 가져오기
@@ -848,7 +860,7 @@ frame pre2000_merge: {
 		
 		// 9. 모델1, 모델2의 결과를 표현 
 		display "Table 5: Year Fixed Effects – Model 1 (Avg) vs Model 2 (Full)"
-		list year model1_coef model_stderr model2_coef model2_stderr, sep(0) noobs
+		list year model1_coef model1_stderr model2_coef model2_stderr, sep(0) noobs
 	restore
 }
 
@@ -945,7 +957,7 @@ frame post2000_merge: {
 		
 		// 9. 모델1, 모델2의 결과를 표현 
 		display "Table 5: Year Fixed Effects – Model 1 (Avg) vs Model 2 (Full)"
-		list year model1_coef model_stderr model2_coef model2_stderr, sep(0) noobs
+		list year model1_coef model1_stderr model2_coef model2_stderr, sep(0) noobs
 	restore
 }
 		
@@ -953,8 +965,6 @@ frame post2000_merge: {
 // 문제 3.d : [Figure 2] Plot of Time-Specific Fixed Effects for Model (2) [5 points]
 // -----------------------------------------------------------------------------------
 
-
-frame change pre2000_merge
 
 frame pre2000_merge: {
 	preserve 
@@ -1012,8 +1022,6 @@ frame pre2000_merge: {
 	restore	
 }
 
-
-frame change post2000_merge
 
 frame post2000_merge: {
 	preserve 
