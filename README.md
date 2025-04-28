@@ -108,6 +108,18 @@ It is **not affiliated** with the original authors or publishers.
 
 
 ## Report for replication project
-[Replication-github.pdf](https://github.com/user-attachments/files/19940037/Replication-github.pdf)
+![Image](https://github.com/user-attachments/assets/c522c7a0-86c0-4ac0-ae24-a8b2a253b1c5)
+
+![Image](https://github.com/user-attachments/assets/18353168-c9ce-47a0-ada5-f4b7e40bcf37)
+
+![Image](https://github.com/user-attachments/assets/8430c5d1-9f57-4b13-a217-5643e5b38807)
+
+![Image](https://github.com/user-attachments/assets/1d37c513-7ac3-42e4-bca2-4a81a392730e)
+
+![Image](https://github.com/user-attachments/assets/8067ebba-c991-44c4-8935-7a897e5d0b46)
+
+![Image](https://github.com/user-attachments/assets/1f9a1de9-a725-422d-abff-ed5b2d6203c2)
+
+![Image](https://github.com/user-attachments/assets/fd65c141-babe-4361-af93-912ac888cb96)
 
 
